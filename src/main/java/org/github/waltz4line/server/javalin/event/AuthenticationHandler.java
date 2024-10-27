@@ -1,4 +1,13 @@
 package org.github.waltz4line.server.javalin.event;
 
-public class AuthenticationHandler {
+
+import io.javalin.http.Context;
+
+@FunctionalInterface
+public interface AuthenticationHandler {
+
+    AuthenticationHandler NOOP = context ->  {};
+
+    void handle(Context context);
+
 }

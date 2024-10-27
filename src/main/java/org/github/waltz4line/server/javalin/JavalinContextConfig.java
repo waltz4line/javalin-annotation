@@ -6,12 +6,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record JavalinServerConfig(@JsonProperty(required = true)
-                                  int port,
-                                  JavalinRouter router,
-                                  JavalinCors cors,
-                                  @JsonProperty(defaultValue = "false")
-                                  boolean enableOpenApi) {
+public record JavalinContextConfig(@JsonProperty(required = true)
+                                   int port,
+                                   JavalinRouter router,
+                                   JavalinCors cors,
+                                   @JsonProperty(defaultValue = "false")
+                                   boolean enableOpenApi,
+                                   JavalinOpenApi openApi) {
 
     public record JavalinRouter(@JsonProperty(defaultValue = "/")
                                 String contextPath,
@@ -28,5 +29,9 @@ public record JavalinServerConfig(@JsonProperty(required = true)
     public record JavalinCors(boolean enableCors,
                               List<String> allowHosts,
                               String exposedHeader) {
+    }
+
+    public record JavalinOpenApi(String title, String version) {
+
     }
 }

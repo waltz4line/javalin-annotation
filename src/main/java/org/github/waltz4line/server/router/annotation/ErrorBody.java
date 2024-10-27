@@ -1,4 +1,4 @@
-package org.github.waltz4line.router.annotation;
+package org.github.waltz4line.server.router.annotation;
 
 public @interface ErrorBody {
 

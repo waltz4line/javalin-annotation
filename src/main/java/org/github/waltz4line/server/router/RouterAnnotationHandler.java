@@ -1,21 +1,20 @@
-package org.github.waltz4line.router;
+package org.github.waltz4line.server.router;
 
 import io.github.classgraph.*;
 import org.apache.commons.lang3.StringUtils;
-import org.github.waltz4line.router.annotation.*;
+import org.github.waltz4line.server.router.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.Annotation;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.lang.reflect.Method;
+import java.util.*;
 
-@Router(path = "/router/annotation/:id", tag = "XXX-GROUP")
 public final class RouterAnnotationHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RouterAnnotationHandler.class);
 
+    private static final char ENDPOINT_ID_DELIMITER = '.';
     private static final String KEY_PATH = "path";
     private static final String KEY_TAG = "tag";
     private static final String KEY_DESCRIPTION = "description";
@@ -24,7 +23,6 @@ public final class RouterAnnotationHandler {
     private static final String KEY_REQUEST_BODY = "requestBody";
     private static final String KEY_RESPONSE_BODY = "responseBody";
     private static final String KEY_ERROR_BODY = "errorBody";
-    private static final String KEY_TYPE = "type";
 
     private RouterAnnotationHandler() {
     }
@@ -32,13 +30,13 @@ public final class RouterAnnotationHandler {
     public static void handle(List<Object> instances, RouterMapper routerMapper) {
         Objects.requireNonNull(instances, "instance must not be null");
         for (Object instance : instances) {
-//            handle(instance, routerMapper);
+            handle(instance, routerMapper);
         }
     }
 
-    public static void handle(Object instance) {
+    public static void handle(Object instance, RouterMapper routerMapper) {
         Objects.requireNonNull(instance, "instance must not be null");
-//        Objects.requireNonNull(routerMapper, "routerMapper must not be null");
+        Objects.requireNonNull(routerMapper, "routerMapper must not be null");
 
         Class<?> clazz = instance.getClass();
         try (ScanResult scanResult = new ClassGraph().enableAllInfo()
@@ -50,44 +48,71 @@ public final class RouterAnnotationHandler {
                 LOGGER.warn("Class {} not found", clazz.getName());
                 return;
             }
+
             Optional<RouterAttr> routerAttr = parseRouterAttr(classInfo, Router.class);
-            routerAttr.ifPresent(attr -> parseEndpoints(instance, classInfo, attr));
+            routerAttr.ifPresent(attr -> parseEndpoints(instance, classInfo.getMethodInfo(), attr, routerMapper));
 
             Optional<RouterAttr> filterAttr = parseRouterAttr(classInfo, RouterFilter.class);
-            filterAttr.ifPresent(attr -> parseFilters(instance, classInfo, attr));
+            filterAttr.ifPresent(attr -> parseFilters(instance, classInfo.getMethodInfo(), attr, routerMapper));
         }
     }
 
-    private static void parseEndpoints(Object instance, ClassInfo classInfo, RouterAttr routerAttr) {
-        MethodInfoList methodInfos = classInfo.getMethodInfo();
-        var instanceName = classInfo.getSimpleName();
-        methodInfos.stream()
-                .filter(m -> isEndpointMethod(m) || isFilterMethod(m))
-                .forEach(m -> {
-                    if (m.hasAnnotation(GetMapping.class)) {
-
-                    } else if (m.hasAnnotation(PostMapping.class)) {
-
-                    } else if (m.hasAnnotation(PutMapping.class)) {
-
-                    } else {
-
-                    }
-                });
-    }
-
-
-    private static void parseFilters(Object instance, ClassInfo classInfo, RouterAttr routerAttr) {
-
-    }
-
-    private static Optional<RequestMappingAttr> parseRequestMappingAttr(RouterAttr routerAttr, MethodInfo methodInfo, Class<? extends Annotation> annotation) {
-        if (!methodInfo.hasAnnotation(annotation)) {
-            return Optional.empty();
+    private static void parseEndpoints(Object instance, MethodInfoList methodInfos, RouterAttr routerAttr, RouterMapper routerMapper) {
+        List<MethodInfo> filteredMethods = methodInfos.stream()
+                .filter(m -> isEndpointMethod(m) || isFilterMethod(m)).toList();
+        for (MethodInfo methodInfo : filteredMethods) {
+            Method method = methodInfo.loadClassAndGetMethod();
+            method.setAccessible(true);
+            if (methodInfo.hasAnnotation(GetMapping.class)) {
+                RequestMapperAttr requestMapping = parseRequestMappingAttr(routerAttr, methodInfo, GetMapping.class);
+                routerMapper.requestGet(instance, method, requestMapping);
+            } else if (methodInfo.hasAnnotation(PostMapping.class)) {
+                RequestMapperAttr requestMapping = parseRequestMappingAttr(routerAttr, methodInfo, PostMapping.class);
+                routerMapper.requestPost(instance, method, requestMapping);
+            } else if (methodInfo.hasAnnotation(PutMapping.class)) {
+                RequestMapperAttr requestMapping = parseRequestMappingAttr(routerAttr, methodInfo, PutMapping.class);
+                routerMapper.requestPut(instance, method, requestMapping);
+            } else if (methodInfo.hasAnnotation(DeleteMapping.class)) {
+                RequestMapperAttr requestMapping = parseRequestMappingAttr(routerAttr, methodInfo, DeleteMapping.class);
+                routerMapper.requestDelete(instance, method, requestMapping);
+            } else {
+                mappingFilter(methodInfo, method, instance, routerAttr, routerMapper);
+            }
+            LOGGER.info("Endpoint parsed for Class:{} Method:{}", instance.getClass().getName(), method.getName());
         }
+    }
+
+    private static void parseFilters(Object instance, MethodInfoList methodInfos, RouterAttr routerAttr, RouterMapper routerMapper) {
+        List<MethodInfo> filteredMethods = methodInfos.stream()
+                .filter(RouterAnnotationHandler::isFilterMethod).toList();
+        for (MethodInfo methodInfo : filteredMethods) {
+            Method method = methodInfo.loadClassAndGetMethod();
+            mappingFilter(methodInfo, method, instance, routerAttr, routerMapper);
+            LOGGER.info("Filter parsed for Class:{} Method:{}", instance.getClass().getName(), method.getName());
+        }
+    }
+
+    private static void mappingFilter(MethodInfo methodInfo, Method method, Object instance, RouterAttr routerAttr, RouterMapper routerMapper) {
+        if (methodInfo.hasAnnotation(BeforeFilter.class)) {
+            String filterPath = parseFilterPath(routerAttr, methodInfo, BeforeFilter.class);
+            routerMapper.filterBefore(instance, method, filterPath);
+        } else {
+            String filterPath = parseFilterPath(routerAttr, methodInfo, AfterFilter.class);
+            routerMapper.filterBefore(instance, method, filterPath);
+        }
+    }
+
+    private static String parseFilterPath(RouterAttr routerAttr, MethodInfo methodInfo, Class<? extends Annotation> annotation) {
         AnnotationParameterValueList parameterValues = methodInfo.getAnnotationInfo(annotation).getParameterValues();
         String path = (String) parameterValues.getValue(KEY_PATH);
-        RequestMappingAttr requestMapping = new RequestMappingAttr(routerAttr.path() + path, routerAttr.tag());
+        return routerAttr.pathConcat(path);
+    }
+
+    private static RequestMapperAttr parseRequestMappingAttr(RouterAttr routerAttr, MethodInfo methodInfo, Class<? extends Annotation> annotation) {
+        AnnotationParameterValueList parameterValues = methodInfo.getAnnotationInfo(annotation).getParameterValues();
+        String path = (String) parameterValues.getValue(KEY_PATH);
+        String endpointId = methodInfo.getName();
+        RequestMapperAttr requestMapping = RequestMapperAttr.of(routerAttr.pathConcat(path), routerAttr.tag(), routerAttr.tag() + ENDPOINT_ID_DELIMITER + endpointId);
         if (parameterValues.containsName(KEY_DESCRIPTION)) {
             requestMapping.setDescription((String) parameterValues.getValue(KEY_DESCRIPTION));
         }
@@ -106,17 +131,32 @@ public final class RouterAnnotationHandler {
         if (parameterValues.containsName(KEY_ERROR_BODY)) {
             requestMapping.addErrorDescriptions(parseErrorDescription(parameterValues));
         }
-        return Optional.of(requestMapping);
+        return requestMapping;
     }
 
-    private static List<RequestMappingAttr.ParameterDescription> parseParameterDescription(AnnotationParameterValueList parameterValues, String paramName) {
-
+    private static List<RequestMapperAttr.ParameterDescription> parseParameterDescription(AnnotationParameterValueList parameterValues, String paramName) {
+        ParamDescriptor[] paramDescriptors = (ParamDescriptor[]) parameterValues.getValue(paramName);
+        if (paramDescriptors == null || paramDescriptors.length == 0) {
+            return Collections.emptyList();
+        }
+        List<RequestMapperAttr.ParameterDescription> parameterDescriptions = new ArrayList<>(paramDescriptors.length);
+        for (ParamDescriptor paramDescriptor : paramDescriptors) {
+            parameterDescriptions.add(new RequestMapperAttr.ParameterDescription(paramDescriptor.name(), paramDescriptor.type(), paramDescriptor.description()));
+        }
+        return parameterDescriptions;
     }
 
-    private static List<RequestMappingAttr.ErrorDescription> parseErrorDescription(AnnotationParameterValueList parameterValues) {
-
+    private static List<RequestMapperAttr.ErrorDescription> parseErrorDescription(AnnotationParameterValueList parameterValues) {
+        ErrorBody[] errorBodies = (ErrorBody[]) parameterValues.getValue(KEY_ERROR_BODY);
+        if (errorBodies == null || errorBodies.length == 0) {
+            return Collections.emptyList();
+        }
+        List<RequestMapperAttr.ErrorDescription> errorDescriptions = new ArrayList<>(errorBodies.length);
+        for (ErrorBody errorBody : errorBodies) {
+            errorDescriptions.add(new RequestMapperAttr.ErrorDescription(errorBody.statusCode(), errorBody.errorCode(), errorBody.responseClass()));
+        }
+        return errorDescriptions;
     }
-
 
     private static Optional<RouterAttr> parseRouterAttr(ClassInfo classInfo, Class<? extends Annotation> annotation) {
         if (!classInfo.hasAnnotation(annotation)) {
@@ -143,11 +183,6 @@ public final class RouterAnnotationHandler {
 
     private static boolean isFilterMethod(MethodInfo methodInfo) {
         return methodInfo.hasAnnotation(BeforeFilter.class) || methodInfo.hasAnnotation(AfterFilter.class);
-    }
-
-    public static void main(String[] args) {
-        RouterAnnotationHandler routerAnnotationHandler = new RouterAnnotationHandler();
-        handle(routerAnnotationHandler);
     }
 
 }

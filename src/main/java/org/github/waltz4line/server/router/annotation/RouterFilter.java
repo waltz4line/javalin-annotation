@@ -1,4 +1,4 @@
-package org.github.waltz4line.router.annotation;
+package org.github.waltz4line.server.router.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -20,12 +20,12 @@ public @interface RouterFilter {
 
 
     /**
-     * 또한 {@link RouterFilter} 가 선언된 하위 메소드에 {@link BeforeFilter} {@link AfterFilter} 가 있다면
+     * {@link RouterFilter} 가 선언된 하위 메소드에 {@link BeforeFilter} {@link AfterFilter} 가 있다면
      * filter handler 에서 설정된 path 로 filter 가 적용된다.
      *
      * @return url path
      */
-    String path() default "/";
+    String path() default "";
 
 
 }

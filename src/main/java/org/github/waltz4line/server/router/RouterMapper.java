@@ -1,27 +1,19 @@
-package org.github.waltz4line.router;
+package org.github.waltz4line.server.router;
 
 import java.lang.reflect.Method;
 
 public interface RouterMapper {
 
-    void requestGet(String path, Method method, Object instance);
+    void requestGet(Object instance, Method method, RequestMapperAttr requestMapping);
 
-    void requestPost(String path, Method method, Object instance);
+    void requestPost(Object instance, Method method, RequestMapperAttr requestMapping);
 
-    void requestPut(String path, Method method, Object instance);
+    void requestPut(Object instance, Method method, RequestMapperAttr requestMapping);
 
-    void requestDelete(String path, Method method, Object instance);
+    void requestDelete(Object instance, Method method, RequestMapperAttr requestMapping);
 
-    void filterBefore(String path, Method method, Object instance);
+    void filterBefore(Object instance, Method method, String filterPath);
 
-    void filterAfter(String path, Method method, Object instance);
-
-    void documentGet(String path, RouterDocument document);
-
-    void documentPost(String path, RouterDocument document);
-
-    void documentPut(String path, RouterDocument document);
-
-    void documentDelete(String path, RouterDocument document);
+    void filterAfter(Object instance, Method method, String filterPath);
 
 }

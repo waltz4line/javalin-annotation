@@ -4,13 +4,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public class RequestMappingAttr {
+public class RequestMapperAttr {
 
     private final String path;
 
     private final EndpointDocument endpointDocument;
 
-    private RequestMappingAttr(String path, EndpointDocument endpointDocument) {
+    private RequestMapperAttr(String path, EndpointDocument endpointDocument) {
         this.path = path;
         this.endpointDocument = endpointDocument;
     }
@@ -120,7 +120,7 @@ public class RequestMappingAttr {
         }
     }
 
-    public static RequestMappingAttr of(String path, String tag, String endpointId) {
-        return new RequestMappingAttr(path, new EndpointDocument(tag, endpointId));
+    public static RequestMapperAttr of(String path, String tag, String endpointId) {
+        return new RequestMapperAttr(path, new EndpointDocument(tag, endpointId));
     }
 }

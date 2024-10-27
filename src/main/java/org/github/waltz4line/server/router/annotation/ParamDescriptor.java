@@ -1,4 +1,4 @@
-package org.github.waltz4line.router.annotation;
+package org.github.waltz4line.server.router.annotation;
 
 /**
  * Path parameter 나 Query parameter 에 대한 설명을 정의한 Annotation

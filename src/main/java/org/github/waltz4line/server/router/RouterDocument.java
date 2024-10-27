@@ -1,4 +1,4 @@
-package org.github.waltz4line.router;
+package org.github.waltz4line.server.router;
 
 public record RouterDocument() {
 }

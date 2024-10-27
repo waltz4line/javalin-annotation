@@ -1,4 +1,4 @@
-package org.github.waltz4line.router.annotation;
+package org.github.waltz4line.server.router.annotation;
 
 /**
  * {@link Router} 가 선언된 Class 내에 Method 에 선언해야 함
@@ -10,7 +10,7 @@ public @interface PostMapping {
      *{@link Router} 에 설정된 path 와 조합하여 최종 endpoint 로 만들어짐
      * @return url path
      */
-    String path();
+    String path() default "/";
 
     /**
      * Open API 할성화 시 사용.
