@@ -1,0 +1,19 @@
+# Impala 드라이버 및 관련 프로바이더
+impyla
+apache-airflow-providers-common-sql
+apache-airflow-providers-http
+
+# PostgreSQL, MySQL 드라이버
+apache-airflow-providers-postgres
+
+# 데이터 분석 및 처리
+pandas
+numpy
+pyarrow
+fastparquet
+
+# API 요청
+requests
+
+# 로깅
+loguru
