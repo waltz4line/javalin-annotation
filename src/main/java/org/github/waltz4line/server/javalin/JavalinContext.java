@@ -137,7 +137,7 @@ public class JavalinContext implements WebServerContext {
 
             @Override
             public void requestGet(Object instance, Method method, RequestMapperAttr requestMapping) {
-                javalin.get(requestMapping.getPath(), ctx -> method.invoke(instance, ctx));
+                javalin.get(requestMapping.getPath(), ctx -> RouterInvokeHandler.handle(ctx, instance, method));
                 if (javalinContextConfig.enableOpenApi()) {
                     definitionProcessor.addRequestMapper(RequestMapper.METHOD_GET, requestMapping);
                 }
