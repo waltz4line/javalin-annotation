@@ -3,25 +3,21 @@ package org.github.waltz4line.server.javalin;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
+import io.javalin.http.HttpStatus;
 import io.javalin.http.RequestLogger;
 import io.javalin.json.JavalinJackson;
 import io.javalin.openapi.plugin.OpenApiPlugin;
 import io.javalin.openapi.plugin.redoc.ReDocPlugin;
-import io.javalin.openapi.plugin.swagger.SwaggerPlugin;
 import org.github.waltz4line.server.WebServerContext;
 import org.github.waltz4line.server.javalin.error.JettyErrorHandler;
 import org.github.waltz4line.server.javalin.error.ServerInitializeException;
 import org.github.waltz4line.server.javalin.event.AuthenticationHandler;
 import org.github.waltz4line.server.javalin.event.LifecycleEvent;
 import org.github.waltz4line.server.javalin.openapi.DynamicDefinitionProcessor;
-import org.github.waltz4line.server.javalin.openapi.RequestMapper;
-import org.github.waltz4line.server.router.RequestMapperAttr;
 import org.github.waltz4line.server.router.RouterAnnotationHandler;
-import org.github.waltz4line.server.router.RouterMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -93,8 +89,9 @@ public class JavalinContext implements WebServerContext {
             ctx.header("X-Frame-Options", "DENY");
             ctx.header("X-XSS-Protection", "1; mode=block");
         });
-
-        configureEndpoints(javalinApp);
+        javalinApp.error(HttpStatus.NOT_FOUND, ctx -> {});
+        RouterAnnotationHandler.handle(registeredRouterInstances,
+                new JavalinRouterMapper(javalinApp, definitionProcessor));
 
         app.set(javalinApp);
         registerShutdownHook();
@@ -132,65 +129,14 @@ public class JavalinContext implements WebServerContext {
         }));
     }
 
-    private void configureEndpoints(Javalin javalin) {
-        RouterAnnotationHandler.handle(registeredRouterInstances, new RouterMapper() {
-
-            @Override
-            public void requestGet(Object instance, Method method, RequestMapperAttr requestMapping) {
-                javalin.get(requestMapping.getPath(), ctx -> RouterInvokeHandler.handle(ctx, instance, method));
-                if (javalinContextConfig.enableOpenApi()) {
-                    definitionProcessor.addRequestMapper(RequestMapper.METHOD_GET, requestMapping);
-                }
-            }
-
-            @Override
-            public void requestPost(Object instance, Method method, RequestMapperAttr requestMapping) {
-                javalin.post(requestMapping.getPath(), ctx -> method.invoke(instance, ctx));
-                if (javalinContextConfig.enableOpenApi()) {
-                    definitionProcessor.addRequestMapper(RequestMapper.METHOD_POST, requestMapping);
-                }
-            }
-
-            @Override
-            public void requestPut(Object instance, Method method, RequestMapperAttr requestMapping) {
-                javalin.put(requestMapping.getPath(), ctx -> method.invoke(instance, ctx));
-                if (javalinContextConfig.enableOpenApi()) {
-                    definitionProcessor.addRequestMapper(RequestMapper.METHOD_PUT, requestMapping);
-                }
-            }
-
-            @Override
-            public void requestDelete(Object instance, Method method, RequestMapperAttr requestMapping) {
-                javalin.delete(requestMapping.getPath(), ctx -> method.invoke(instance, ctx));
-                if (javalinContextConfig.enableOpenApi()) {
-                    definitionProcessor.addRequestMapper(RequestMapper.METHOD_DELETE, requestMapping);
-                }
-            }
-
-            @Override
-            public void filterBefore(Object instance, Method method, String filterPath) {
-                javalin.before(filterPath, ctx -> method.invoke(instance, ctx));
-            }
-
-            @Override
-            public void filterAfter(Object instance, Method method, String filterPath) {
-                javalin.after(filterPath, ctx -> method.invoke(instance, ctx));
-            }
-        });
-    }
-
     private void configureOpenApi(JavalinConfig config) {
         if (javalinContextConfig.enableOpenApi()) {
             config.registerPlugin(new OpenApiPlugin(pluginConfig -> {
                 pluginConfig.withDefinitionConfiguration((version, definition) -> {
-                    definition.withServer(openApiServer -> {
-                    });
                     definition.withInfo(info -> info.setTitle("Javalin OpenAPI"));
                     definition.withDefinitionProcessor(definitionProcessor);
                 });
             }));
-
-            config.registerPlugin(new SwaggerPlugin());
             config.registerPlugin(new ReDocPlugin());
         }
     }
